@@ -28,12 +28,12 @@ ELEMENTS = [
 ]
 
 
-@pytest.mark.parametrize("name, by, locator", ELEMENTS, ids=[e[0] for e in ELEMENTS])
+@pytest.mark.parametrize("by, locator", ELEMENTS, ids=[e[0] for e in ELEMENTS])
 def test_element_is_displayed(driver, name, by, locator):
     element = WebDriverWait(driver, 10).until(
         EC.visibility_of_element_located((by, locator))
     )
-    assert element.is_displayed(), f"{name} не отображается на странице"
+    assert element.is_displayed()
 
 
 
@@ -41,8 +41,8 @@ SUB_MENU_ABOUT = [(By.LINK_TEXT, "О компании"),
              ( By.LINK_TEXT, "Контакты"),
              ( By.LINK_TEXT, 'Работа у нас')]
 
-@pytest.mark.parametrize(" by, locator", SUB_MENU_ABOUT, ids=[e[1] for e in SUB_MENU_ABOUT])
-def test_sub_menu2_is_displayed(driver, by, locator):
+@pytest.mark.parametrize("by, locator", SUB_MENU_ABOUT, ids=[e[1] for e in SUB_MENU_ABOUT])
+def test_about_submenu_is_displayed(driver, by, locator):
     WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.LINK_TEXT, "О нас"))
     ).click()
