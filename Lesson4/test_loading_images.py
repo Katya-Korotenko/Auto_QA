@@ -19,8 +19,8 @@ def driver():
 
 def test_loading_images(driver):
     WebDriverWait(driver, 15).until(
-        lambda d: len(d.find_elements(By.CSS_SELECTOR, "img[src]")) == 4
-    )
+    lambda d: len(d.find_elements(By.CSS_SELECTOR, "#image-container img[src]")) == 4
+)
 
     # Шаг 3: берём третье изображение (индекс 2)
     images = driver.find_elements(By.TAG_NAME, "img")
