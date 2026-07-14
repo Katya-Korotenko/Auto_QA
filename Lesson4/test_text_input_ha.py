@@ -8,8 +8,8 @@ import pytest
 def driver():
     driver = webdriver.Chrome()
     driver.maximize_window()
-    driver.get("http://uitestingplayground.com/textinput")
     driver.implicitly_wait(15)
+    driver.get("http://uitestingplayground.com/textinput")
     yield driver
     driver.quit()
 

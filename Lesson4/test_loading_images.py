@@ -21,11 +21,7 @@ def test_loading_images(driver):
     WebDriverWait(driver, 15).until(
     lambda d: len(d.find_elements(By.CSS_SELECTOR, "#image-container img[src]")) == 4
 )
-
-    # Шаг 3: берём третье изображение (индекс 2)
-    images = driver.find_elements(By.TAG_NAME, "img")
+    driver.find_elements(By.TAG_NAME, "img")
     third_image = driver.find_element(By.ID, "award")
-
-    # Шаг 4: читаем атрибут alt и проверяем
     alt_value = third_image.get_attribute("alt")
     assert alt_value == "award", f"Ожидали 'award', получили '{alt_value}'"
