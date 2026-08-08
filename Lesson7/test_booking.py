@@ -3,8 +3,16 @@ import pytest
 
 BASE_URL = "https://restful-booker.herokuapp.com"
 
+DEFAULT_BOOKING = {
+    "first_name": "Anna",
+    "last_name": "Smith",
+    "total_price": 150,
+    "deposit_paid": True,
+    "checkin": "2025-01-01",
+    "checkout": "2025-01-05",
+    "additional_needs": "Breakfast"
+}
 
-# ——— API класс ———
 
 class BookingApi:
     def __init__(self, url):
@@ -20,7 +28,6 @@ class BookingApi:
 
     def create_booking(self, first_name, last_name, total_price,
                        deposit_paid, checkin, checkout, additional_needs=""):
-
         resp = requests.post(
             self.url + '/booking',
             json={
@@ -28,10 +35,7 @@ class BookingApi:
                 "lastname": last_name,
                 "totalprice": total_price,
                 "depositpaid": deposit_paid,
-                "bookingdates": {
-                    "checkin": checkin,
-                    "checkout": checkout
-                },
+                "bookingdates": {"checkin": checkin, "checkout": checkout},
                 "additionalneeds": additional_needs
             },
             headers={"Content-Type": "application/json"}
@@ -57,18 +61,13 @@ class BookingApi:
         return resp.json()
 
     def get_booking_non_existing(self, booking_id):
-        resp = requests.get(self.url + f'/booking/{booking_id}')
-        return resp
+        return requests.get(self.url + f'/booking/{booking_id}')
 
-
-# ——— Фикстура ———
 
 @pytest.fixture(scope="class")
 def api():
     return BookingApi(BASE_URL)
 
-
-# ——— Тестовый класс ———
 
 class TestBookingApi:
     @pytest.fixture(scope="class", autouse=True)
@@ -76,38 +75,38 @@ class TestBookingApi:
         request.cls.api = api
         request.cls.token = api.get_token()
 
-    def test_create_booking(self):
-        result = self.api.create_booking(
-            first_name="Anna",
-            last_name="Smith",
-            total_price=150,
-            deposit_paid=True,
-            checkin="2025-01-01",
-            checkout="2025-01-05",
-            additional_needs="Breakfast"
+    def create_default_booking(self, **overrides):
+        data = {**DEFAULT_BOOKING, **overrides}
+        return self.api.create_booking(**data)
+
+    # ——— Позитивные тесты ———
+
+    @pytest.mark.positive
+    @pytest.mark.parametrize("first_name, last_name, total_price", [
+        ("Anna",  "Smith", 150),    # обычный случай
+        ("John",  "Doe",   0),      # нулевая цена
+        ("Maria", "Jones", 99999),  # максимальная цена
+    ])
+    def test_create_booking(self, first_name, last_name, total_price):
+        result = self.create_default_booking(
+            first_name=first_name,
+            last_name=last_name,
+            total_price=total_price
         )
+        assert "bookingid" in result
+        assert result["booking"]["firstname"] == first_name
+        assert result["booking"]["lastname"] == last_name
+        assert result["booking"]["totalprice"] == total_price
 
-        assert "bookingid" in result, "В ответе нет bookingid"
-        booking = result["booking"]
-        assert booking["firstname"] == "Anna"
-        assert booking["lastname"] == "Smith"
-        assert booking["totalprice"] == 150
-        assert booking["depositpaid"] is True
-        assert booking["bookingdates"]["checkin"] == "2025-01-01"
-        assert booking["bookingdates"]["checkout"] == "2025-01-05"
-        assert booking["additionalneeds"] == "Breakfast"
-
+    @pytest.mark.positive
     def test_partial_update_booking(self):
-        created = self.api.create_booking(
+        created = self.create_default_booking(
             first_name="John",
             last_name="Doe",
             total_price=100,
-            deposit_paid=False,
-            checkin="2025-02-01",
-            checkout="2025-02-05"
+            deposit_paid=False
         )
         booking_id = created["bookingid"]
-
 
         updated = self.api.partial_update_booking(
             booking_id,
@@ -118,26 +117,38 @@ class TestBookingApi:
 
         assert updated["firstname"] == "Updated"
         assert updated["totalprice"] == 999
-        # Остальные поля не должны измениться
         assert updated["lastname"] == "Doe"
         assert updated["depositpaid"] is False
 
+    @pytest.mark.positive
     def test_get_booking_after_create(self):
-        created = self.api.create_booking(
+        created = self.create_default_booking(
             first_name="Maria",
             last_name="Jones",
-            total_price=200,
-            deposit_paid=True,
-            checkin="2025-03-01",
-            checkout="2025-03-10"
+            total_price=200
         )
-        booking_id = created["bookingid"]
+        booking = self.api.get_booking(created["bookingid"])
 
-        booking = self.api.get_booking(booking_id)
         assert booking["firstname"] == "Maria"
         assert booking["lastname"] == "Jones"
         assert booking["totalprice"] == 200
 
+    # ——— Негативные тесты ———
+
+    @pytest.mark.negative
     def test_get_non_existing_booking(self):
         resp = self.api.get_booking_non_existing(999999999)
         assert resp.status_code == 404, f"Ожидался 404, получен {resp.status_code}"
+
+    @pytest.mark.negative
+    def test_update_without_token(self):
+        """Попытка обновить бронь без токена — должен вернуть 403"""
+        created = self.create_default_booking()
+        booking_id = created["bookingid"]
+
+        resp = requests.patch(
+            BASE_URL + f'/booking/{booking_id}',
+            json={"firstname": "Hacker"},
+            headers={"Content-Type": "application/json"}
+        )
+        assert resp.status_code == 403, f"Ожидался 403, получен {resp.status_code}"
