@@ -1,73 +1,8 @@
 import requests
 import pytest
+from test_data import DEFAULT_BOOKING
 
 BASE_URL = "https://restful-booker.herokuapp.com"
-
-DEFAULT_BOOKING = {
-    "first_name": "Anna",
-    "last_name": "Smith",
-    "total_price": 150,
-    "deposit_paid": True,
-    "checkin": "2025-01-01",
-    "checkout": "2025-01-05",
-    "additional_needs": "Breakfast"
-}
-
-
-class BookingApi:
-    def __init__(self, url):
-        self.url = url
-
-    def get_token(self):
-        resp = requests.post(
-            self.url + '/auth',
-            json={"username": "admin", "password": "password123"}
-        )
-        assert resp.status_code == 200, f"Ожидался 200, получен {resp.status_code}"
-        return resp.json()["token"]
-
-    def create_booking(self, first_name, last_name, total_price,
-                       deposit_paid, checkin, checkout, additional_needs=""):
-        resp = requests.post(
-            self.url + '/booking',
-            json={
-                "firstname": first_name,
-                "lastname": last_name,
-                "totalprice": total_price,
-                "depositpaid": deposit_paid,
-                "bookingdates": {"checkin": checkin, "checkout": checkout},
-                "additionalneeds": additional_needs
-            },
-            headers={"Content-Type": "application/json"}
-        )
-        assert resp.status_code == 200, f"Ожидался 200, получен {resp.status_code}"
-        return resp.json()
-
-    def get_booking(self, booking_id):
-        resp = requests.get(self.url + f'/booking/{booking_id}')
-        assert resp.status_code == 200, f"Ожидался 200, получен {resp.status_code}"
-        return resp.json()
-
-    def partial_update_booking(self, booking_id, token, **kwargs):
-        resp = requests.patch(
-            self.url + f'/booking/{booking_id}',
-            json=kwargs,
-            headers={
-                "Content-Type": "application/json",
-                "Cookie": f"token={token}"
-            }
-        )
-        assert resp.status_code == 200, f"Ожидался 200, получен {resp.status_code}"
-        return resp.json()
-
-    def get_booking_non_existing(self, booking_id):
-        return requests.get(self.url + f'/booking/{booking_id}')
-
-
-@pytest.fixture(scope="class")
-def api():
-    return BookingApi(BASE_URL)
-
 
 class TestBookingApi:
     @pytest.fixture(scope="class", autouse=True)
@@ -83,9 +18,9 @@ class TestBookingApi:
 
     @pytest.mark.positive
     @pytest.mark.parametrize("first_name, last_name, total_price", [
-        ("Anna",  "Smith", 150),    # обычный случай
-        ("John",  "Doe",   0),      # нулевая цена
-        ("Maria", "Jones", 99999),  # максимальная цена
+        ("Anna",  "Smith", 150),
+        ("John",  "Doe",   0),
+        ("Maria", "Jones", 99999),
     ])
     def test_create_booking(self, first_name, last_name, total_price):
         result = self.create_default_booking(
@@ -137,18 +72,17 @@ class TestBookingApi:
 
     @pytest.mark.negative
     def test_get_non_existing_booking(self):
-        resp = self.api.get_booking_non_existing(999999999)
+        resp = self.api.get_booking_non_existing(99999)
         assert resp.status_code == 404, f"Ожидался 404, получен {resp.status_code}"
 
     @pytest.mark.negative
     def test_update_without_token(self):
-        """Попытка обновить бронь без токена — должен вернуть 403"""
         created = self.create_default_booking()
         booking_id = created["bookingid"]
 
         resp = requests.patch(
             BASE_URL + f'/booking/{booking_id}',
-            json={"firstname": "Hacker"},
+            json={"firstname": "Smith"},
             headers={"Content-Type": "application/json"}
         )
         assert resp.status_code == 403, f"Ожидался 403, получен {resp.status_code}"
